@@ -8,7 +8,7 @@ import numpy as np
 st.set_page_config(
     page_title="Global Mobile Sales Insights Dashboard",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="auto"
 )
 
 st.markdown("""
@@ -17,11 +17,11 @@ st.markdown("""
     .stApp { background-color: #121212; color: #f8fafc; }
     header { visibility: hidden !important; display: none !important; }
     
-    /* Lock Sidebar (Hide collapse controls) */
+    /* Allow sidebar collapse button on mobile */
     [data-testid="stSidebarCollapseButton"] { display: none !important; }
     [data-testid="collapsedControl"] { display: none !important; }
 
-    /* Remove all scrollbars entirely */
+    /* Remove all scrollbars entirely on desktop */
     ::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
     * { scrollbar-width: none !important; -ms-overflow-style: none !important; }
     
@@ -38,13 +38,35 @@ st.markdown("""
         overflow: hidden !important;
     }
 
-    /* ── Static (no-scroll) page ── */
-    .stApp,
-    [data-testid="stAppViewContainer"],
-    [data-testid="stMain"],
-    section.main {
-        overflow: hidden !important;
-        height: 100vh !important;
+    /* ── Static (no-scroll) page — DESKTOP ONLY ── */
+    @media (min-width: 769px) {
+        .stApp,
+        [data-testid="stAppViewContainer"],
+        [data-testid="stMain"],
+        section.main {
+            overflow: hidden !important;
+            height: 100vh !important;
+        }
+    }
+
+    /* ── MOBILE: allow scrolling, reset overflow ── */
+    @media (max-width: 768px) {
+        .stApp,
+        [data-testid="stAppViewContainer"],
+        [data-testid="stMain"],
+        section.main {
+            overflow: auto !important;
+            height: auto !important;
+        }
+        .block-container {
+            overflow: visible !important;
+            padding-left: 0.3rem !important;
+            padding-right: 0.3rem !important;
+        }
+        /* Hide sidebar entirely on mobile — filters move inline */
+        [data-testid="stSidebar"] {
+            display: none !important;
+        }
     }
 
     /* ── Sidebar — Burnt Orange ── */
@@ -302,8 +324,120 @@ st.markdown("""
         font-size: 11px; 
         font-weight: 600; 
     }
+
+    /* ══════════════════════════════════════════
+       MOBILE OVERRIDES
+    ══════════════════════════════════════════ */
+    @media (max-width: 768px) {
+
+        /* KPI row: 2 columns grid instead of 5 in a row */
+        .kpi-row {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr !important;
+            gap: 8px !important;
+            padding: 10px 4px !important;
+        }
+        .kpi-card {
+            border-left: 3px solid #F26419 !important;
+            border-right: none !important;
+            border-top: 1px solid #2D2D2D !important;
+            border-bottom: 1px solid #2D2D2D !important;
+            padding: 8px 10px !important;
+        }
+        /* 5th KPI card spans full width */
+        .kpi-card:last-child {
+            grid-column: 1 / -1 !important;
+        }
+        .kpi-value {
+            font-size: 22px !important;
+        }
+        .kpi-label {
+            font-size: 10px !important;
+            letter-spacing: 0.5px !important;
+        }
+        .kpi-sub {
+            font-size: 9px !important;
+            white-space: normal !important;
+        }
+
+        /* All st.columns stack vertically */
+        div[data-testid="column"] {
+            width: 100% !important;
+            min-width: 100% !important;
+            flex: 0 0 100% !important;
+            height: auto !important;
+            max-height: none !important;
+            margin-bottom: 0px !important;
+            border: none !important;
+        }
+
+        /* Bottom row columns: remove fixed height */
+        [data-testid="column"] [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+            height: auto !important;
+            max-height: none !important;
+            margin-top: 4px !important;
+            border: 1px solid #333333 !important;
+        }
+
+        /* Charts: auto height on mobile */
+        [data-testid="stPlotlyChart"] {
+            height: auto !important;
+        }
+
+        /* Mobile header strip */
+        .mobile-header {
+            display: flex !important;
+        }
+    }
+
+    /* Hide mobile header on desktop */
+    .mobile-header {
+        display: none;
+        background-color: #F26419;
+        padding: 10px 12px;
+        margin-bottom: 8px;
+        border-bottom: 1px solid rgba(255,255,255,0.2);
+    }
+    .mobile-header-title {
+        font-size: 16px;
+        font-weight: 800;
+        color: #fff;
+        line-height: 1.2;
+    }
+    .mobile-filters-toggle {
+        font-size: 11px;
+        font-weight: 700;
+        color: rgba(255,255,255,0.75);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-top: 4px;
+        cursor: pointer;
+    }
 </style>
 """, unsafe_allow_html=True)
+
+# ── Mobile Detection via query param ─────────────────────────────────────────
+st.markdown("""
+<script>
+(function() {
+    if (window.innerWidth <= 768) {
+        var url = new URL(window.location.href);
+        if (url.searchParams.get('mobile') !== '1') {
+            url.searchParams.set('mobile', '1');
+            window.location.replace(url.toString());
+        }
+    } else {
+        var url = new URL(window.location.href);
+        if (url.searchParams.get('mobile') === '1') {
+            url.searchParams.delete('mobile');
+            window.location.replace(url.toString());
+        }
+    }
+})();
+</script>
+""", unsafe_allow_html=True)
+
+is_mobile = st.query_params.get("mobile", "0") == "1"
 
 # ── Number Formatter (K / L / B) ─────────────────────────────────────────────
 def fmt(val, prefix=""):
@@ -333,67 +467,116 @@ def load_data():
 
 df = load_data()
 
-# ── Sidebar ───────────────────────────────────────────────────────────────────
-# Title at the very top, no extra margin
-st.sidebar.markdown("<div class='sb-title'>Global Mobile<br>Sales Insights<br>dashboard</div>", unsafe_allow_html=True)
+# ── Sidebar (desktop) / Inline filters (mobile) ──────────────────────────────
 
-# Year Filter at the top (Button style)
-st.sidebar.markdown("<div style='font-size:11px; font-weight:700; color:#888; text-transform:uppercase; margin-bottom:2px; margin-left:6px;'>year</div>", unsafe_allow_html=True)
 years = ["All"] + sorted(df["year"].dropna().unique().astype(int).astype(str).tolist())
-sel_year_str = st.sidebar.radio("Year", years, horizontal=True, label_visibility="collapsed")
-sel_year = int(sel_year_str) if sel_year_str != "All" else "All"
 
-# Apply year filter for insights
-df_y = df[df["year"] == sel_year] if sel_year != "All" else df.copy()
+if is_mobile:
+    # ── Mobile: compact header + inline filter expander ──
+    st.markdown("""
+    <div class='mobile-header'>
+        <div>
+            <div class='mobile-header-title'>Global Mobile Sales<br>Insights Dashboard</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-# Quick Insights
-if not df_y.empty:
-    top_brand_s = df_y.groupby("brand")["revenue"].sum()
-    top_brand = top_brand_s.idxmax()
-    top_brand_val = top_brand_s.max()
+    with st.expander("🔽 Filters & Quick Insights", expanded=False):
+        sel_year_str = st.radio("Year", years, horizontal=True)
+        sel_year = int(sel_year_str) if sel_year_str != "All" else "All"
+        df_y = df[df["year"] == sel_year] if sel_year != "All" else df.copy()
 
-    top_country_s = df_y.groupby("country")["units_sold"].sum()
-    top_country = top_country_s.idxmax()
-    top_country_val = top_country_s.max()
+        brands     = ["All"] + sorted(df_y["brand"].dropna().unique().tolist())
+        price_rngs = ["All"] + ['Budget', 'Mid-Range', 'Premium', 'Ultra-Premium']
+        countries  = ["All"] + sorted(df_y["country"].dropna().unique().tolist())
 
-    top_model_s = df_y.groupby(["brand", "model"])["units_sold"].sum()
-    top_brand_model = top_model_s.idxmax()
-    top_model = f"{top_brand_model[0]} {top_brand_model[1]}"
-    top_model_val = top_model_s.max()
+        mc1, mc2, mc3 = st.columns(3)
+        with mc1: sel_brand   = st.selectbox("Brand 📱",   brands,     key="m_brand")
+        with mc2: sel_price   = st.selectbox("Price 💰",   price_rngs, key="m_price")
+        with mc3: sel_country = st.selectbox("Country 🌍", countries,  key="m_country")
 
-    brand_text = f"{top_brand} ({fmt_curr(top_brand_val)})"
-    country_text = f"{top_country} ({fmt_num(top_country_val)} units)"
-    model_text = f"{top_model}<br>({fmt_num(top_model_val)} units)"
+        # Quick Insights inline
+        df_yi = df_y.copy()
+        if sel_brand   != "All": df_yi = df_yi[df_yi["brand"]       == sel_brand]
+        if sel_price   != "All": df_yi = df_yi[df_yi["price_range"] == sel_price]
+        if sel_country != "All": df_yi = df_yi[df_yi["country"]     == sel_country]
+
+        if not df_yi.empty:
+            top_brand_s = df_yi.groupby("brand")["revenue"].sum()
+            top_brand   = top_brand_s.idxmax()
+            top_brand_val = top_brand_s.max()
+            top_country_s = df_yi.groupby("country")["units_sold"].sum()
+            top_country   = top_country_s.idxmax()
+            top_country_val = top_country_s.max()
+            top_model_s = df_yi.groupby(["brand","model"])["units_sold"].sum()
+            top_brand_model = top_model_s.idxmax()
+            top_model = f"{top_brand_model[0]} {top_brand_model[1]}"
+            top_model_val = top_model_s.max()
+            st.markdown(f"""
+            <div style='display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px;'>
+              <div style='background:rgba(242,100,25,0.15);border-left:3px solid #F26419;padding:6px 8px;border-radius:4px;'>
+                <div style='font-size:9px;color:#aaa;text-transform:uppercase;'>🏆 Top Brand</div>
+                <div style='font-size:11px;font-weight:700;color:#fff;'>{top_brand}<br><span style='color:#F26419;'>{fmt_curr(top_brand_val)}</span></div>
+              </div>
+              <div style='background:rgba(242,100,25,0.15);border-left:3px solid #F26419;padding:6px 8px;border-radius:4px;'>
+                <div style='font-size:9px;color:#aaa;text-transform:uppercase;'>🌍 Top Country</div>
+                <div style='font-size:11px;font-weight:700;color:#fff;'>{top_country}<br><span style='color:#F26419;'>{fmt_num(top_country_val)} units</span></div>
+              </div>
+              <div style='background:rgba(242,100,25,0.15);border-left:3px solid #F26419;padding:6px 8px;border-radius:4px;'>
+                <div style='font-size:9px;color:#aaa;text-transform:uppercase;'>📱 Top Model</div>
+                <div style='font-size:11px;font-weight:700;color:#fff;'>{top_model}<br><span style='color:#F26419;'>{fmt_num(top_model_val)} units</span></div>
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
+
 else:
-    brand_text = country_text = model_text = "N/A"
+    # ── Desktop: original sidebar ──
+    st.sidebar.markdown("<div class='sb-title'>Global Mobile<br>Sales Insights<br>dashboard</div>", unsafe_allow_html=True)
+    st.sidebar.markdown("<div style='font-size:11px; font-weight:700; color:#888; text-transform:uppercase; margin-bottom:2px; margin-left:6px;'>year</div>", unsafe_allow_html=True)
+    sel_year_str = st.sidebar.radio("Year", years, horizontal=True, label_visibility="collapsed")
+    sel_year = int(sel_year_str) if sel_year_str != "All" else "All"
+    df_y = df[df["year"] == sel_year] if sel_year != "All" else df.copy()
 
-st.sidebar.markdown("<div style='font-size:11px; font-weight:700; color:#888; margin-top:4px; margin-bottom:4px; margin-left:6px; text-transform:uppercase;'>QUICK INSIGHTS</div>", unsafe_allow_html=True)
+    if not df_y.empty:
+        top_brand_s = df_y.groupby("brand")["revenue"].sum()
+        top_brand = top_brand_s.idxmax()
+        top_brand_val = top_brand_s.max()
+        top_country_s = df_y.groupby("country")["units_sold"].sum()
+        top_country = top_country_s.idxmax()
+        top_country_val = top_country_s.max()
+        top_model_s = df_y.groupby(["brand", "model"])["units_sold"].sum()
+        top_brand_model = top_model_s.idxmax()
+        top_model = f"{top_brand_model[0]} {top_brand_model[1]}"
+        top_model_val = top_model_s.max()
+        brand_text = f"{top_brand} ({fmt_curr(top_brand_val)})"
+        country_text = f"{top_country} ({fmt_num(top_country_val)} units)"
+        model_text = f"{top_model}<br>({fmt_num(top_model_val)} units)"
+    else:
+        brand_text = country_text = model_text = "N/A"
 
-st.sidebar.markdown(f"""
-<div class='insight-card'>
-    <div class='insight-title'>🏆 Top Brand</div>
-    <div class='insight-value'>{brand_text}</div>
-</div>
-<div class='insight-card'>
-    <div class='insight-title'>🌍 Top Country</div>
-    <div class='insight-value'>{country_text}</div>
-</div>
-<div class='insight-card'>
-    <div class='insight-title'>📱 Top Model</div>
-    <div class='insight-value'>{model_text}</div>
-</div>
-""", unsafe_allow_html=True)
+    st.sidebar.markdown("<div style='font-size:11px; font-weight:700; color:#888; margin-top:4px; margin-bottom:4px; margin-left:6px; text-transform:uppercase;'>QUICK INSIGHTS</div>", unsafe_allow_html=True)
+    st.sidebar.markdown(f"""
+    <div class='insight-card'>
+        <div class='insight-title'>🏆 Top Brand</div>
+        <div class='insight-value'>{brand_text}</div>
+    </div>
+    <div class='insight-card'>
+        <div class='insight-title'>🌍 Top Country</div>
+        <div class='insight-value'>{country_text}</div>
+    </div>
+    <div class='insight-card'>
+        <div class='insight-title'>📱 Top Model</div>
+        <div class='insight-value'>{model_text}</div>
+    </div>
+    """, unsafe_allow_html=True)
+    st.sidebar.markdown("<hr style='border: none; border-top: 1px solid rgba(255,255,255,0.25); margin: 12px 0;'>", unsafe_allow_html=True)
 
-# Scrollable Filter Section
-st.sidebar.markdown("<hr style='border: none; border-top: 1px solid rgba(255,255,255,0.25); margin: 12px 0;'>", unsafe_allow_html=True)
-
-brands     = ["All"] + sorted(df_y["brand"].dropna().unique().tolist())
-price_rngs = ["All"] + ['Budget', 'Mid-Range', 'Premium', 'Ultra-Premium']
-countries  = ["All"] + sorted(df_y["country"].dropna().unique().tolist())
-
-sel_brand   = st.sidebar.selectbox("Brand 📱",   brands)
-sel_price   = st.sidebar.selectbox("Price 💰",   price_rngs)
-sel_country = st.sidebar.selectbox("Country 🌍", countries)
+    brands     = ["All"] + sorted(df_y["brand"].dropna().unique().tolist())
+    price_rngs = ["All"] + ['Budget', 'Mid-Range', 'Premium', 'Ultra-Premium']
+    countries  = ["All"] + sorted(df_y["country"].dropna().unique().tolist())
+    sel_brand   = st.sidebar.selectbox("Brand 📱",   brands)
+    sel_price   = st.sidebar.selectbox("Price 💰",   price_rngs)
+    sel_country = st.sidebar.selectbox("Country 🌍", countries)
 
 # ── Filters ───────────────────────────────────────────────────────────────────
 df_f = df_y.copy()
@@ -518,9 +701,16 @@ CHART_FILL  = "rgba(242,100,25,0.15)"
 CHART_LABEL = "#FFD1BA"
 
 # ══════════════════════════════════════════════════════════
-#  MAIN VISUALS : Left (70%) | Right (30%)
+#  MAIN VISUALS : Left (70%) | Right (30%) — stacked on mobile
 # ══════════════════════════════════════════════════════════
-col_left, col_right = st.columns([7, 3])
+if is_mobile:
+    col_left, col_right = st.columns([1, 1])  # equal width on mobile isn't great, so use tabs
+    # On mobile we use a tab layout instead of side-by-side columns
+    tab_trend, tab_brands = st.tabs(["📈 Sales Trend", "🏆 Top Brands"])
+    col_left  = tab_trend
+    col_right = tab_brands
+else:
+    col_left, col_right = st.columns([7, 3])
 
 with col_left:
     # 📈 Line – Sales Trend Over Time
@@ -544,7 +734,8 @@ with col_left:
             hovertemplate="<b>Date:</b> %{x}<br><b>Units:</b> %{y:,}<extra></extra>"
         )
         # 50% height
-        fig_line = base_layout(fig_line, height=330)
+        line_h = 240 if is_mobile else 330
+        fig_line = base_layout(fig_line, height=line_h)
         fig_line.update_layout(
             title=dict(
                 text="📈 Sales Trend Over Time",
@@ -571,8 +762,15 @@ with col_left:
     #  BOTTOM SECTION : Treemap | Donut | Map
     # ══════════════════════════════════════════════════════════
     st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
-    col_bl, col_bm, col_br = st.columns(3)
-    title_html = "<div style='margin: 0px !important; padding: 8px 0px 8px 8px; font-size: 13px; font-weight: bold; color: #eeeeee; text-align: left; position: relative !important; z-index: 10 !important; background-color: #121212;'>{}</div>"
+    
+    if is_mobile:
+        # On mobile: tabs for bottom charts
+        tab_tree, tab_donut, tab_map = st.tabs(["🌳 Age Groups", "🏷️ Price Segments", "🌍 By Country"])
+        col_bl, col_bm, col_br = tab_tree, tab_donut, tab_map
+        bottom_h = 250
+    else:
+        col_bl, col_bm, col_br = st.columns(3)
+        bottom_h = 300
 
     with col_bl:
         if not df_f.empty:
@@ -611,7 +809,7 @@ with col_left:
                 plot_bgcolor="rgba(0,0,0,0)",
                 font_color="#bdbdbd",
                 margin=dict(l=0, r=0, t=0, b=0),
-                height=300,
+                height=bottom_h,
                 coloraxis_showscale=False
             )
             st.plotly_chart(fig_tree, use_container_width=True, key="treemap_chart", config={"displayModeBar": False})
@@ -656,7 +854,7 @@ with col_left:
                 plot_bgcolor="rgba(0,0,0,0)",
                 font_color="#bdbdbd",
                 margin=dict(l=10, r=10, t=5, b=5),
-                height=300,
+                height=bottom_h,
                 showlegend=False
             )
             st.plotly_chart(fig_donut, use_container_width=True, key="donut_chart", config={"displayModeBar": False})
@@ -705,7 +903,7 @@ with col_left:
                     lonaxis=dict(range=[-160, 170], showgrid=False),
                 ),
                 margin=dict(l=10, r=10, t=10, b=10),
-                height=300,
+                height=bottom_h,
                 coloraxis_showscale=False
             )
             st.plotly_chart(fig_map, use_container_width=True, key="map_chart", config={"displayModeBar": False})
@@ -739,12 +937,13 @@ with col_right:
         ))
 
         # Height 659px aligns perfectly with left column (330px + 330px - 1px overlap)
+        bar_h = 350 if is_mobile else 659
         fig_bar.update_layout(
             title=dict(text="🏆 Top Brands by Revenue", font=dict(size=13, color="#eeeeee"), x=0),
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
             font_color="#bdbdbd",
-            height=659,
+            height=bar_h,
             margin=dict(l=4, r=8, t=36, b=24),
             xaxis=dict(
                 showgrid=True, gridcolor="#1A1A1A",
