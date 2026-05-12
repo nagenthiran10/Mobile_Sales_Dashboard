@@ -79,10 +79,12 @@ The dashboard uses **JavaScript-based mobile detection** (`window.innerWidth <= 
 ## 🗂️ Project Structure
 
 ```
-├── app.py                      # Main Streamlit application
+├── app.py                         # Main Streamlit application
 ├── data/
 │   └── mobile_sales_dataset.csv   # Source dataset
-├── requirements.txt            # Python dependencies
+├── images/
+│   └── preview.png                # Main preview image (used in README header)
+├── requirements.txt               # Python dependencies
 └── README.md
 ```
 
@@ -113,7 +115,7 @@ The app derives two additional columns at load time:
 
 **1. Clone the repository**
 ```bash
-git clone https://github.com/your-username/Mobile_sales_dashboard.git
+git clone https://github.com/nagenthiran10/Mobile_sales_dashboard.git
 cd Mobile_sales_dashboard
 ```
 
@@ -145,6 +147,8 @@ streamlit
 pandas
 plotly
 numpy
+statsmodels
+openpyxl
 ```
 
 ---
@@ -170,14 +174,6 @@ numpy
 - **Smart number formatting** — values display as B (billions), L (lakhs), or K (thousands) depending on magnitude
 - **Collapsed borders** — chart panels share borders via negative margins for a tight grid feel
 - **No modebar clutter** — Plotly modebar is hidden by default and only appears on hover (desktop)
-
----
-
-## 📸 Preview
-
-| Desktop | Mobile |
-|-----------------------------------|--------------------------------|
-| Full sidebar + 70/30 split layout | Tabbed charts + inline filters |
 
 ---
 
